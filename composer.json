@@ -1,0 +1,19 @@
+{
+  "name": "voie/routing",
+  "type": "library",
+  "description": "A PHP library to construct processing pipeline for Http requests.",
+  "keywords": ["routing","route","controller","rest"],
+  "homepage": "https://github.com/has5aan/voie",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Hassaan Ahmed Rana",
+      "email": "has5aan@outlook.com",
+      "homepage": "https://github.com/has5aan/",
+      "role": "Developer"
+    }
+  ],
+  "require": {
+    "php": ">=7.3.5"
+  }
+}
