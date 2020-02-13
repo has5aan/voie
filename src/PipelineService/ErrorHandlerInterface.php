@@ -1,6 +1,5 @@
 <?php
 
-
 namespace Voie\PipelineService;
 
 use Exception;
