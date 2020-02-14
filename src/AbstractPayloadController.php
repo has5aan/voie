@@ -12,7 +12,7 @@ abstract class AbstractPayloadController extends AbstractController
     protected $payload;
 
     /**
-     * Construct the controller with the provided services.
+     * Construct the controller with the provided payload and services.
      * @param mixed $payload Represents injected JSON payload.
      * @param array $services Represents injected services.
      */
