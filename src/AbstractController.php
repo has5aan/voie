@@ -19,8 +19,8 @@ set_error_handler(function($errno , $errstr , $errfile , $errline) {
 /**
  * Class AbstractController : Provides HTTP request handling infrastructure.
  * <p>
- * Controller class can be extended to provide functionality to handle different HTTP request types by overriding
- * GET(), PUT(), POST(), PATCH() and DELETE().
+ * Controller class can be extended to handle different HTTP request types by providing
+ * the corresponding method.
  * </p>
  * <p>
  * Controller object can also be injected with service(s) using service() or the constructor().
@@ -46,51 +46,6 @@ abstract class AbstractController
     public function __construct($services = array())
     {
         $this->services = $services;
-    }
-
-    /**
-     * Handles the HTTP-GET requests.
-     * @throws Exception
-     */
-    public function GET()
-    {
-        throw new Exception('Handler for the HTTP-GET request method is not implemented!', 404);
-    }
-
-    /**
-     * Handles the HTTP-PUT requests.
-     * @throws Exception
-     */
-    public function PUT()
-    {
-        throw new Exception('Handler for HTTP-PUT request method is not implemented!', 404);
-    }
-
-    /**
-     * Handles the HTTP-POST requests.
-     * @throws Exception
-     */
-    public function POST()
-    {
-        throw new Exception('Handler for HTTP-POST request method is not implemented!', 404);
-    }
-
-    /**
-     * Handles the HTTP-PATCH requests.
-     * @throws Exception
-     */
-    public function PATCH()
-    {
-        throw new Exception('Handler for HTTP-PATCH request method is not implemented!', 404);
-    }
-
-    /**
-     * Handles the HTTP-DELETE requests.
-     * @throws Exception
-     */
-    public function DELETE()
-    {
-        throw new Exception('Handler for HTTP-DELETE request method is not implemented!', 404);
     }
 
     /**
