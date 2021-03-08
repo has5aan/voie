@@ -18,80 +18,70 @@ use Voie\PipelineService\ErrorHandlerInterface;
 use Voie\PipelineService\MiddlewareInterface;
 
 /**
- * Class Router: Provides Http web request routing infrastructure through an object instance.
- * <p>
- * Allows registering different route handlers. Each route handler responds to a route path and a specific Http
- * request method. Route handlers against an Http request method can be registered using, get(), put(), patch(), post()
+ * Provides a request routing infrastructure through an object instance analogous to HTTP verbs.
+ *
+ * Allows registering different route handlers. Each route handler responds to a route path and a specific
+ * request method. Route handlers against a request method can be registered using, get(), put(), patch(), post()
  * and delete().
- * </p>
- * <p>
- * Router object also allows registering request handler only against any Http request method. The request handler
- * is registered using requestHandler().
- * </p>
- * <p>
+ *
+ * Router object also allows registering request handler only against the provided request method without a route path.
+ * The request handler is registered using requestHandler().
+ *
  * Every request handler can also have a sequence of predecessors and successors that are executed in their
  * chronological order, before and after the execution of the actual request handler.
- * </p>
- * <p>
+ *
  * Initializers can be defined for the router object using initialize(). If defined, initialization logic
  * is executed for each request at the beginning of the request processing pipeline.
- * </p>
- * <p>
+ *
  * Router object can also contain middleware logic defined using middleware(). If defined, the middleware logic
  * is executed for each request after the execution of initializers.
- * </p>
- * <p>
+ *
  * Error handling and destruction logic can be defined using errorHandler() and destructor().
- * </p>
- * <p>
+ *
  * Router object can also be injected with service(s) using service().
  * The services may implement any combination of the interfaces defined in the service architecture
  * under @package Voie\PipelineService. These provide the router with middleware, dispatch, error handling
  * and destruction logic.
- * </p>
- * <p>
+ *
  * Summary: Router object provides an approach to build a request processing pipeline through request handlers for
  * a specific route using get(), put(), post(), patch() and delete(). It can also act as a script with a single
  * request handler for any Http request method that is defined through requestHandler(). Allows the construction of
  * request processing pipeline using initialize() and middleware(). errorHandler() and destructor()
  * provides a mechanism to define error handling and destruction logic.
- * </p>
- * <p>
+ *
  * service() provides a mechanism to plug services at different stages of request processing pipeline through the
  * implementation of any combination of interfaces defined under @package Voie\PipelineService.
- * </p>
- * <p>
+ *
  * The request processing pipeline logic injected through services are executed after the execution of the logic
  * maintained as Closures within the Router class.
- * </p>
- * <p>
+ *
  * All the middleware logic leading to the execution of the request against a request handler is executed in
  * chronological order after the execution of initialization logic.
- * </p>
+ *
  * @package Voie
  */
 class Router extends stdClass
 {
     /** @var Route[] Contains route handlers against a corresponding route path. */
-    private $routes;
+    private array $routes;
 
-    /** @var Closure[] Contains initialization logic. */
-    private $initializers;
+    /** @var array<Closure> Contains initialization logic. */
+    private array $initializers;
 
-    /** @var Closure[] Contains middleware logic. */
-    private $middleware;
+    /** @var array<Closure> Contains middleware logic. */
+    private array $middleware;
 
     /** @var Route[] Contains request handler for script mode against a combination of Http request methods. */
-    private $requestHandlers;
+    private array $requestHandlers;
 
-    /** @var Closure[] Contains destruction logic. */
-    private $destructors;
+    /** @var array<Closure> Contains destruction logic. */
+    private array $destructors;
 
-    /** @var Closure[] Contains error handling logic. */
-    private $errorHandlers;
+    /** @var array<Closure> Contains error handling logic. */
+    private array $errorHandlers;
 
-    /** @var Closure[] Contains services. */
-    private $services;
+    /** @var array<Closure> Contains services. */
+    private array $services;
 
     /** Initializes the internal data structures to maintain routes, middleware and error handlers. */
     public function __construct() {
@@ -105,56 +95,56 @@ class Router extends stdClass
     }
 
     /**
-     * Appends a route that responds to HTTP-GET requests against a route path.
+     * Appends a route that responds to GET requests against a route path.
      * @param string $routePath Url route path.
      * @param Closure $requestHandler Defines the logic to handle the Http request.
-     * @return Route Route object added to the list of routes.
+     * @return Route Route object added to the route collection.
      */
-    public function get($routePath, $requestHandler) : Route
+    public function get(string $routePath, Closure $requestHandler) : Route
     {
         return $this->addRoute($routePath, $requestHandler, 'GET');
     }
 
     /**
-     * Appends a route that responds to HTTP-PUT requests against a route path.
+     * Appends a route that responds to PUT requests against a route path.
      * @param string $routePath Url route path.
      * @param Closure $requestHandler Defines the logic to handle the Http request.
      * @return Route Route object added to the route collection.
      */
-    public function put($routePath, $requestHandler) : Route
+    public function put(string $routePath, Closure $requestHandler) : Route
     {
         return $this->addRoute($routePath, $requestHandler, 'PUT');
     }
 
     /**
-     * Appends a route that responds to HTTP-PATCH requests against a route path.
+     * Appends a route that responds to PATCH requests against a route path.
      * @param string $routePath Url route path.
      * @param Closure $requestHandler Defines the logic to handle the Http request.
      * @return Route Route object added to the route collection.
      */
-    public function patch($routePath, $requestHandler) : Route
+    public function patch(string $routePath, Closure $requestHandler) : Route
     {
         return $this->addRoute($routePath, $requestHandler, 'PATCH');
     }
 
     /**
-     * Appends a route that responds to HTTP-POST requests against a route path.
+     * Appends a route that responds to POST requests against a route path.
      * @param string $routePath Url route path.
      * @param Closure $requestHandler Defines the logic to handle the Http request.
      * @return Route Route object added to the route collection.
      */
-    public function post($routePath, $requestHandler) : Route
+    public function post(string $routePath, closure $requestHandler) : Route
     {
         return $this->addRoute($routePath, $requestHandler, 'POST');
     }
 
     /**
-     * Appends a route that responds to HTTP-DELETE requests against a route path.
+     * Appends a route that responds to DELETE requests against a route path.
      * @param string $routePath Url route path.
      * @param Closure $requestHandler Defines the logic to handle the Http request.
      * @return Route Route object added to the route collection.
      */
-    public function delete($routePath, $requestHandler) : Route
+    public function delete(string $routePath, closure $requestHandler) : Route
     {
         return $this->addRoute($routePath, $requestHandler, 'DELETE');
     }
@@ -163,12 +153,12 @@ class Router extends stdClass
      * Appends a route path for the specified Http request method and its request handler.
      * @param string $routePath Url route path.
      * @param Closure $requestHandler Route handler.
-     * @param string $httpVerb Http request method.
+     * @param string $method Request method.
      * @return Route The route object that was appended.
      */
-    private function addRoute($routePath, $requestHandler, $httpVerb) : Route
+    public function addRoute(string $routePath, closure $requestHandler, string $method) : Route
     {
-        $route = new Route($routePath, $requestHandler, $httpVerb);
+        $route = new Route($routePath, $requestHandler, $method);
 
         $this->routes[$routePath] = $route;
 
