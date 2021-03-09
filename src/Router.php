@@ -6,16 +6,12 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 
 set_error_handler(function ($errno, $errstr, $errfile, $errline) {
-    throw new Exception(sprintf("%s(%s):%s", $errfile, $errline, $errstr), 500);
+    throw new \Exception(sprintf("%s:%s(%s):%s%s", $errno, $errfile, $errline, $errstr, PHP_EOL), 500);
 }, E_ALL);
 
 use Closure;
 use Exception;
 use stdClass;
-use Voie\PipelineService\DestructorInterface;
-use Voie\PipelineService\DispatchInterface;
-use Voie\PipelineService\ErrorHandlerInterface;
-use Voie\PipelineService\MiddlewareInterface;
 
 /**
  * Provides an infrastructure to route requests analogous to HTTP request methods through an instance object.
@@ -38,22 +34,11 @@ use Voie\PipelineService\MiddlewareInterface;
  *
  * Error handling and destruction logic can be defined using errorHandler() and destructor().
  *
- * Router object can also be injected with service(s) using service().
- * The services may implement any combination of the interfaces defined in the service architecture
- * under @package Voie\PipelineService. These provide the router with middleware, dispatch, error handling
- * and destruction logic.
- *
  * Summary: Router object provides an approach to build a request processing pipeline through request handlers for
  * a specific route using get(), put(), post(), patch() and delete(). It can also act as a script with a single
  * request handler for any Http request method that is defined through requestHandler(). Allows the construction of
  * request processing pipeline using initialize() and middleware(). errorHandler() and destructor()
  * provides a mechanism to define error handling and destruction logic.
- *
- * service() provides a mechanism to plug services at different stages of request processing pipeline through the
- * implementation of any combination of interfaces defined under @package Voie\PipelineService.
- *
- * The request processing pipeline logic injected through services are executed after the execution of the logic
- * maintained as Closures within the Router class.
  *
  * All the middleware logic leading to the execution of the request against a request handler is executed in
  * chronological order after the execution of initialization logic.
@@ -74,14 +59,14 @@ class Router extends stdClass
     /** @var Route[] Contains request handler for script mode against a combination of Http request methods. */
     private array $requestHandlers;
 
+    /** @var array<Closure> Contains the dispatch logic. */
+    private array $dispatchers;
+
     /** @var array<Closure> Contains destruction logic. */
     private array $destructors;
 
     /** @var array<Closure> Contains error handling logic. */
     private array $errorHandlers;
-
-    /** @var array<Closure> Contains services. */
-    private array $services;
 
     /** Initializes the internal data structures to maintain routes, middleware and error handlers. */
     public function __construct()
@@ -89,10 +74,10 @@ class Router extends stdClass
         $this->routes = array();
         $this->initializers = array();
         $this->middleware = array();
+        $this->dispatchers = array();
         $this->destructors = array();
         $this->requestHandlers = array();
         $this->errorHandlers = array();
-        $this->services = array();
     }
 
     /**
@@ -206,6 +191,18 @@ class Router extends stdClass
     }
 
     /**
+     * Appends the dispatch logic to the request handling pipeline.
+     * @param Closure $handler
+     * @return Router Current instance.
+     */
+    public function dispatcher(closure $handler): Router
+    {
+        $this->dispatchers[] = $handler;
+
+        return $this;
+    }
+
+    /**
      * Appends error handling logic to the request handling pipeline.
      * @param Closure $errorHandler Defines the error handling logic.
      * @return Router Current instance.
@@ -242,64 +239,6 @@ class Router extends stdClass
     }
 
     /**
-     * Executes the middleware logic contained in services.
-     * The execution is performed as per the chronological order of the services.
-     */
-    private function serviceMiddleware()
-    {
-        foreach ($this->services as $middleware)
-            if ($middleware instanceof MiddlewareInterface)
-                $middleware->middleware();
-    }
-
-    /**
-     * Executes the dispatch logic contained in services.
-     * The execution is performed as per the chronological order of the services.
-     * @param mixed $result Results to be dispatched.
-     */
-    private function serviceDispatch($result)
-    {
-        foreach ($this->services as $dispatcher)
-            if ($dispatcher instanceof DispatchInterface)
-                $dispatcher->dispatch($result);
-    }
-
-    /**
-     * Executes the error handler contained in services.
-     * The execution is performed as per the chronological order of the services.
-     * @param Exception $ex Exception object to be provided to the error handling logic.
-     */
-    private function serviceErrorHandler(Exception $ex)
-    {
-        foreach ($this->services as $errorHandler)
-            if ($errorHandler instanceof ErrorHandlerInterface)
-                $errorHandler->handleError($ex);
-    }
-
-    /**
-     * Executes the dispatch logic for erroneous cases.
-     * The execution is performed as per the chronological order of the services.
-     * @param Exception $ex Exception object to be provided to the error handling logic.
-     */
-    private function serviceErrorDispatch(Exception $ex)
-    {
-        foreach ($this->services as $handler)
-            if ($handler instanceof ErrorHandlerInterface)
-                $handler->handleError($ex);
-    }
-
-    /**
-     * Executes the destructor logic contained in the services.
-     * The execution is performed as per the chronological order of the services.
-     */
-    private function serviceDestructor()
-    {
-        foreach ($this->services as $destructor)
-            if ($destructor instanceof DestructorInterface)
-                $destructor->destruct();
-    }
-
-    /**
      * Executes the request handler for a specific request method defined against a route path.
      * The route path is provided through the $routePath parameter.
      *
@@ -315,7 +254,7 @@ class Router extends stdClass
      *
      * The execution of post handlers for the request handler continues after the request handler.
      *
-     * @param string $requestMethod The Http request method.
+     * @param string $requestMethod The request method.
      * @param boolean|string $routePath Url route path against which the request handler logic is to be executed.
      */
     public function route(string $requestMethod, $routePath)
@@ -324,10 +263,10 @@ class Router extends stdClass
             if (!array_key_exists($routePath, $this->routes))
                 throw new Exception('Route does not exist!', 404);
 
-            /** @var Route $route for the corresponding Http request method. */
+            /** @var Route $route for the corresponding request method. */
             $route = $this->routes[$routePath];
             if ($requestMethod != $route->method())
-                throw new Exception('Route does not exist for the Http request method!', 404);
+                throw new Exception('Route does not exist for the request method!', 404);
 
             $this->processRequest($route);
         } catch (Exception $ex) {
@@ -340,7 +279,7 @@ class Router extends stdClass
     /**
      * Executes the request handler defined for script mode.
      * Triggers error if the router is not configured as a script.
-     * @param string $requestMethod The Http request method.
+     * @param string $requestMethod The request method.
      */
     public function dispatch(string $requestMethod)
     {
@@ -381,35 +320,50 @@ class Router extends stdClass
             $handler();
     }
 
+    private function executeHandlersWithPayload(array $handlers, string $logicZone, $payload)
+    {
+        /** @var Closure $handler */
+        foreach ($handlers as $handler) {
+            if (is_array($payload))
+                $payload = $handler(...$payload);
+            else
+                $handler($payload);
+        }
+
+        return $payload;
+    }
+
     /**
      * Executes the pipeline against an Http request.
      * @param Route $route object containing the request processing logic.
      */
     private function processRequest(Route $route)
     {
+        $result = null;
+
         /** Execute all the initialization logic in chronological order. */
         $this->executeHandlers($this->initializers, 'initializers');
 
         /** Execute all the middleware logic in chronological order. */
-        $this->executeHandlers($this->middleware, 'middleware');
-
-        /** Execute all the middleware logic provided through services in chronological order. */
-        $this->serviceMiddleware();
+        $result = $this->executeHandlersWithPayload($this->middleware, 'middleware', $result);
 
         /** Executes all the pre-processing handlers in chronological order. */
-        $this->executeHandlers($route->preHandlers(), 'pre-Handlers');
+        $result = $this->executeHandlersWithPayload($route->preHandlers(), 'pre-Handlers', $result);
 
         $handler = $route->requestHandler();
 
         /** Executes the request handler. */
         /** @var mixed $result */
-        $result = $handler();
+        if (is_array($result))
+            $result = $handler(...$result);
+        else
+            $result = $handler($result);
 
         /** Executes all the post-processing handlers in chronological order. */
-        $this->executeHandlers($route->postHandlers(), 'post-Handlers');
+        $this->executeHandlersWithPayload($route->postHandlers(), 'post-Handlers', $result);
 
-        /** Executes the dispatch logic provided through services in chronological order. */
-        $this->serviceDispatch($result);
+        /** Executes all the dispatch handlers in chronological order. */
+        $this->executeHandlersWithPayload($this->dispatchers, 'dispatchers', $result);
     }
 
     /**
@@ -420,12 +374,6 @@ class Router extends stdClass
     {
         foreach ($this->errorHandlers as $errorHandler)
             $errorHandler($ex);
-
-        /** Executes the error handling logic provided through services in chronological order. */
-        $this->serviceErrorHandler($ex);
-
-        /** Executes the dispatch logic for erroneous situation provided through services in chronological order. */
-        $this->serviceErrorDispatch($ex);
     }
 
     /**
@@ -434,9 +382,6 @@ class Router extends stdClass
     private function finallyBlock()
     {
         $this->executeHandlers($this->destructors, 'finally block');
-
-        /** Executes the destruction logic provided through services in chronological order. */
-        $this->serviceDestructor();
     }
 
     /** Destruct the Router object. */
